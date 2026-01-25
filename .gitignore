@@ -1,0 +1,122 @@
+# Smart Audit Agent - .gitignore
+
+# ============================================
+# Python
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# ============================================
+# ML Models (Large files - download separately)
+# ============================================
+models/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+*.h5
+
+# ============================================
+# IDE and Editors
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# ============================================
+# OS Files
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ============================================
+# Temporary and Cache Files
+# ============================================
+temp_uploads/
+temp_processed/
+*.tmp
+*.temp
+*.log
+*.cache
+.cache/
+
+# ============================================
+# Test and Coverage
+# ============================================
+.coverage
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+*.cover
+coverage.xml
+*.coverage
+
+# ============================================
+# Jupyter Notebooks
+# ============================================
+.ipynb_checkpoints/
+
+# ============================================
+# Environment and Secrets
+# ============================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets.json
+config.local.json
+
+# ============================================
+# Build Outputs
+# ============================================
+*.exe
+*.dll
+*.dylib
+node_modules/
+
+# ============================================
+# Logs
+# ============================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
