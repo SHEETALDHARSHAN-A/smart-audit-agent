@@ -173,7 +173,8 @@ body {
     gap: 2rem;
 }
 
-.preview-panel, .form-panel {
+.preview-panel,
+.form-panel {
     background: var(--bg-card);
     border-radius: 12px;
     box-shadow: var(--shadow);
@@ -260,6 +261,48 @@ body {
 }
 
 .form-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Form Sections */
+.form-section {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--bg-main);
+    border-radius: 8px;
+}
+
+.form-section h4 {
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tax-grid {
+    grid-template-columns: repeat(4, 1fr);
+    margin-bottom: 0;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group textarea {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: all 0.2s;
+}
+
+.form-group textarea:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -413,7 +456,7 @@ body {
     .form-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .header-stats {
         gap: 1.5rem;
     }

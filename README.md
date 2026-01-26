@@ -1,13 +1,12 @@
 # Smart Audit Agent - AI-Powered Document OCR
 
-A high-accuracy, local document ingestion and extraction pipeline using **PaddleOCR**, **TrOCR** (for handwriting), and **FastAPI**.
+A high-accuracy, local document ingestion and extraction pipeline using **PaddleOCR** and **FastAPI**.
 
 ## ✨ Features
 
 - **Local Execution** - Runs entirely on your machine, no cloud APIs required
 - **Hybrid OCR Engine** - Combines multiple OCR engines for best accuracy:
   - **PaddleOCR** - Advanced layout-aware text extraction
-  - **TrOCR** - Microsoft's transformer-based handwriting recognition
   - **Tesseract** - Fallback OCR support
 - **Image Preprocessing** - Automatic deskew, denoise, and upscaling
 - **Multi-Format Support** - PDF, images, Word docs, Excel files
@@ -37,9 +36,6 @@ python -m venv venv
 
 # 3. Install dependencies
 pip install -r Backend\requirements.txt
-
-# 4. Download TrOCR model (for handwriting recognition)
-.\download_trocr.bat
 ```
 
 ### Running the Server
@@ -70,10 +66,6 @@ Smart-Audit-Agent/
 ├── Frontend/
 │   ├── index.html             # Web interface
 │   └── app.js                 # Frontend JavaScript
-├── models/
-│   └── trocr-base-handwritten/  # TrOCR model files (downloaded)
-├── download_trocr.bat         # Model download script (Windows)
-├── download_trocr.ps1         # Model download script (PowerShell)
 ├── run_server.bat             # Server startup script
 └── README.md
 ```
@@ -138,7 +130,6 @@ The system uses a smart hybrid approach:
 | Model | Size | Purpose |
 |-------|------|---------|
 | PaddleOCR | ~150 MB | Downloaded automatically |
-| TrOCR Base | **1.27 GB** | Run `download_trocr.bat` |
 | Tesseract | External | Optional, install separately |
 
 ---
@@ -152,12 +143,7 @@ The system uses a smart hybrid approach:
    pip install -r Backend\requirements.txt
    ```
 
-2. **Download models:**
-   ```bash
-   .\download_trocr.bat
-   ```
-
-3. **Run with production server:**
+2. **Run with production server:**
    ```bash
    .\venv\Scripts\uvicorn Backend.app:app --host 0.0.0.0 --port 8000
    ```
@@ -170,27 +156,7 @@ Docker configuration is planned for future releases.
 
 ## 🛠️ Troubleshooting
 
-### TrOCR Model Issues
 
-If TrOCR fails to load:
-
-```bash
-# Re-download the model
-.\download_trocr.bat
-
-# Or manually download from:
-# https://huggingface.co/microsoft/trocr-base-handwritten
-```
-
-### PyTorch Issues
-
-If you see DLL loading errors:
-
-```bash
-# Reinstall PyTorch
-pip uninstall torch torchvision -y
-pip install torch==2.2.0 torchvision==0.17.0 --index-url https://download.pytorch.org/whl/cpu
-```
 
 ### PaddleOCR Issues
 

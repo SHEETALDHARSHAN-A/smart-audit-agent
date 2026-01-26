@@ -43,20 +43,30 @@ class LLMEnhancer:
             return {"data": basic_extraction, "confidence": 0.7, "enhanced": False}
         
         try:
-            prompt = f"""Extract invoice/bill information from the following OCR text.
-Return ONLY a valid JSON object with these fields (use null if not found):
-- date: string in DD/MM/YYYY format
+            prompt = f"""Extract structured data from the following OCR text of an invoice/bill.
+            
+CRITICAL INSTRUCTION: Correct common handwriting OCR errors based on context. 
+Example: If a price is '15' but the total implies it should be '45', assume '4' was misread as '1'.
+Example: If a tax is '1896' but the subtotal is '100', it's likely '18%'. 
+
+Return ONLY a valid JSON object with these exact fields (use null if not found):
+- date: string (DD/MM/YYYY)
 - vendor_name: string
-- gstin: string (15 characters)
+- gstin: string (15 chars, starts with 2 digits, then 5 letters)
 - invoice_no: string
-- total: number
-- tax: number
-- line_items: array of objects with description, qty, rate, amount
+- summary: string (brief 1-sentence summary of what the bill is for, e.g., "Grocery list including 5 items" or "Restaurant bill for 2")
+- subtotal: number (before tax)
+- sgst: number (just the tax amount)
+- cgst: number (just the tax amount)
+- igst: number (just the tax amount)
+- total_tax: number (sum of all taxes)
+- total: number (final grand total)
+- line_items: array of objects {{ "description": string, "qty": number, "rate": number, "amount": number }}
 
 OCR Text:
-{ocr_text[:2500]}
+{ocr_text[:3000]}
 
-Return ONLY the JSON object, no explanations."""
+Return ONLY the JSON object. No markdown formatting. No explanation."""
             
             # Call Groq API
             response = self.client.chat.completions.create(

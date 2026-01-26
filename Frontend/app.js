@@ -107,13 +107,22 @@ async function showReviewSection(file, result) {
     else if (confidence >= 0.80) badge.className += 'confidence-medium';
     else badge.className += 'confidence-low';
 
-    // Populate form
+    // Populate form - basic fields
     document.getElementById('date').value = result.date || '';
     document.getElementById('invoice_no').value = result.invoice_no || '';
     document.getElementById('vendor_name').value = result.vendor_name || '';
     document.getElementById('gstin').value = result.gstin || '';
     document.getElementById('total').value = result.total || '';
-    document.getElementById('tax').value = result.tax || '';
+    document.getElementById('subtotal').value = result.subtotal || '';
+
+    // Tax breakdown
+    document.getElementById('sgst').value = result.sgst || '';
+    document.getElementById('cgst').value = result.cgst || '';
+    document.getElementById('igst').value = result.igst || '';
+    document.getElementById('total_tax').value = result.total_tax || result.tax || '';
+
+    // Summary
+    document.getElementById('summary').value = result.summary || '';
 
     // Line items
     const lineItemsContainer = document.getElementById('line-items');
@@ -181,7 +190,12 @@ async function approveDocument() {
         vendor_name: document.getElementById('vendor_name').value,
         gstin: document.getElementById('gstin').value,
         total: parseFloat(document.getElementById('total').value) || 0,
-        tax: parseFloat(document.getElementById('tax').value) || 0,
+        subtotal: parseFloat(document.getElementById('subtotal').value) || 0,
+        sgst: parseFloat(document.getElementById('sgst').value) || 0,
+        cgst: parseFloat(document.getElementById('cgst').value) || 0,
+        igst: parseFloat(document.getElementById('igst').value) || 0,
+        total_tax: parseFloat(document.getElementById('total_tax').value) || 0,
+        summary: document.getElementById('summary').value,
         line_items: []
     };
 

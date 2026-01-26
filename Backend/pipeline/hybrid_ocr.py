@@ -6,7 +6,7 @@ import os
 import logging
 import time
 import warnings
-warnings.filterwarnings("ignore", message="Some weights of VisionEncoderDecoderModel")
+
 from typing import Dict, List, Any, Tuple
 import numpy as np
 
@@ -14,7 +14,6 @@ class HybridOCREngine:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.engines = {}
-        self._trocr_unavailable = False  # Cache TrOCR availability to avoid repeated warnings
         self._initialize_engines()
     
     def _initialize_engines(self):
@@ -40,88 +39,7 @@ class HybridOCREngine:
                 return None
         return self.engines.get('tesseract')
     
-    def _get_local_model_path(self) -> str:
-        """Get the path to the local TrOCR model directory"""
-        # Check relative to project root (works for both development and deployment)
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(os.path.dirname(current_dir))  # Go up from Backend/pipeline
-        return os.path.join(project_root, 'models', 'trocr-base-handwritten')
-    
-    def _is_trocr_available(self) -> tuple:
-        """
-        Check if TrOCR model is available locally or in HuggingFace cache.
-        Returns: (is_available: bool, model_path: str or None)
-        """
-        # First check local models directory (production deployment)
-        local_path = self._get_local_model_path()
-        local_model_file = os.path.join(local_path, 'model.safetensors')
-        local_config_file = os.path.join(local_path, 'config.json')
-        
-        if os.path.exists(local_model_file) and os.path.exists(local_config_file):
-            return True, local_path
-        
-        # Fall back to HuggingFace cache
-        try:
-            from huggingface_hub import try_to_load_from_cache
-            model_file = try_to_load_from_cache(
-                'microsoft/trocr-base-handwritten', 
-                'model.safetensors'
-            )
-            if model_file is not None and model_file != False:
-                return True, 'microsoft/trocr-base-handwritten'
-        except Exception:
-            pass
-        
-        return False, None
-    
-    def _get_trocr(self):
-        """Lazy load TrOCR for handwriting - from local models or HuggingFace cache"""
-        # Return early if we already know TrOCR is unavailable
-        if self._trocr_unavailable:
-            return None
-        
-        if 'trocr' not in self.engines:
-            # Check if model is available
-            is_available, model_path = self._is_trocr_available()
-            
-            if not is_available:
-                self.logger.warning(
-                    "TrOCR model not found. Run 'download_trocr.bat' to download. "
-                    "Using PaddleOCR in the meantime."
-                )
-                self._trocr_unavailable = True
-                return None
-            
-            try:
-                from transformers import TrOCRProcessor, VisionEncoderDecoderModel
-                
-                # Determine if loading from local path or HuggingFace
-                is_local = os.path.isdir(model_path) if model_path else False
-                
-                if is_local:
-                    self.logger.info(f"Loading TrOCR model from local: {model_path}")
-                    processor = TrOCRProcessor.from_pretrained(model_path, local_files_only=True)
-                    model = VisionEncoderDecoderModel.from_pretrained(model_path, local_files_only=True)
-                else:
-                    self.logger.info("Loading TrOCR model from HuggingFace cache...")
-                    processor = TrOCRProcessor.from_pretrained(model_path, local_files_only=True)
-                    model = VisionEncoderDecoderModel.from_pretrained(model_path, local_files_only=True)
-                
-                # Dynamic Quantization (2-3x speedup on CPU)
-                self.logger.info("Applying dynamic quantization to TrOCR...")
-                import torch
-                model = torch.quantization.quantize_dynamic(
-                    model, {torch.nn.Linear}, dtype=torch.qint8
-                )
-                self.logger.info("TrOCR quantized successfully")
-                
-                self.engines['trocr'] = {'processor': processor, 'model': model}
-                self.logger.info("TrOCR initialized successfully")
-            except Exception as e:
-                self.logger.warning(f"TrOCR not available: {e}. Falling back to PaddleOCR for all text.")
-                self._trocr_unavailable = True  # Don't try again
-                return None
-        return self.engines.get('trocr')
+
     
     def detect_handwriting(self, image_path: str) -> bool:
         """
@@ -164,39 +82,7 @@ class HybridOCREngine:
             self.logger.error(f"Handwriting detection failed: {e}")
             return False
     
-    def extract_handwriting_batch(self, image_paths: List[str]) -> List[str]:
-        """Extract handwritten text from a batch of images using TrOCR"""
-        if not image_paths:
-            return []
-            
-        trocr = self._get_trocr()
-        if not trocr:
-            return [""] * len(image_paths)
-        
-        try:
-            from PIL import Image
-            import torch
-            
-            # Load all images
-            images = [Image.open(p).convert("RGB") for p in image_paths]
-            
-            # Process batch
-            pixel_values = trocr['processor'](images, return_tensors="pt").pixel_values
-            
-            # Generate text (batch inference)
-            generated_ids = trocr['model'].generate(pixel_values, max_length=128)
-            texts = trocr['processor'].batch_decode(generated_ids, skip_special_tokens=True)
-            
-            return texts
-            
-        except Exception as e:
-            self.logger.error(f"TrOCR batch extraction failed: {e}")
-            return [""] * len(image_paths)
 
-    def extract_handwriting_with_trocr(self, image_path: str) -> str:
-        """Extract handwritten text using TrOCR (Single Image)"""
-        results = self.extract_handwriting_batch([image_path])
-        return results[0] if results else ""
     
     def detect_document_type(self, file_path: str) -> str:
         """Detect document type from file extension"""
@@ -231,27 +117,7 @@ class HybridOCREngine:
             self.logger.error(f"Tesseract extraction failed: {e}")
             return ""
     
-    def extract_with_trocr(self, image_path: str) -> str:
-        """Extract handwritten text using TrOCR"""
-        trocr = self._get_trocr()
-        if not trocr:
-            return ""
-        
-        try:
-            from PIL import Image
-            import torch
-            
-            image = Image.open(image_path).convert("RGB")
-            pixel_values = trocr['processor'](image, return_tensors="pt").pixel_values
-            
-            generated_ids = trocr['model'].generate(pixel_values)
-            text = trocr['processor'].batch_decode(generated_ids, skip_special_tokens=True)[0]
-            
-            self.logger.info(f"TrOCR extracted: {text}")
-            return text
-        except Exception as e:
-            self.logger.error(f"TrOCR extraction failed: {e}")
-            return ""
+
     
     def extract_tables(self, pdf_path: str) -> List[Dict]:
         """Extract tables from PDF using Camelot"""
@@ -404,14 +270,12 @@ class HybridOCREngine:
         return text_blocks if text_blocks else [{"text": "", "confidence": 0, "box": []}]
     
     def _process_scanned_pdf(self, pdf_path: str) -> List[Dict]:
-        """Convert PDF pages to images, detect handwriting per region, run appropriate OCR"""
+        """Convert PDF pages to images and run appropriate OCR"""
         text_blocks = []
         
         try:
             import fitz  # PyMuPDF
-            import cv2
             import os
-            from PIL import Image
             
             pdf_doc = fitz.open(pdf_path)
             temp_dir = "temp_processed"
@@ -423,116 +287,30 @@ class HybridOCREngine:
                 img_path = os.path.join(temp_dir, f"pdf_page_{page_num}.png")
                 pix.save(img_path)
                 
-                # First pass: Use PaddleOCR to get text boxes and initial text
-                paddle_results = []
+                # Use PaddleOCR to get text boxes
                 if 'paddle' in self.engines:
                     result = self.engines['paddle'].ocr(img_path)
                     if result and result[0]:
-                        paddle_results = result[0]
-                
-                # Load the image for region extraction
-                full_img = cv2.imread(img_path)
-                
-                start_time = time.time()
-                
-                # Analyze each text region
-                regions_to_process = []  # Store metadata for batch processing
-                
-                for line in paddle_results:
-                    box = line[0]  # [[x1,y1], [x2,y1], [x2,y2], [x1,y2]]
-                    paddle_text = line[1][0]
-                    paddle_conf = line[1][1]
-                    
-                    # Extract region coordinates
-                    x_coords = [p[0] for p in box]
-                    y_coords = [p[1] for p in box]
-                    x1, x2 = int(min(x_coords)), int(max(x_coords))
-                    y1, y2 = int(min(y_coords)), int(max(y_coords))
-                    
-                    # Skip very small regions (likely noise or single characters)
-                    if (x2 - x1) < 30 or (y2 - y1) < 15:
-                        text_blocks.append({
-                            "text": paddle_text, "confidence": paddle_conf, "box": box, "page": page_num + 1, "engine": "paddle_fast"
-                        })
-                        continue
-
-                    # Add padding
-                    pad = 5
-                    x1, y1 = max(0, x1-pad), max(0, y1-pad)
-                    x2, y2 = min(full_img.shape[1], x2+pad), min(full_img.shape[0], y2+pad)
-                    
-                    # Crop the text region
-                    region = full_img[y1:y2, x1:x2]
-                    
-                    # Check if this region looks handwritten
-                    is_handwritten = self._is_region_handwritten(region)
-                    
-                    if is_handwritten and paddle_conf < 0.9:
-                        # Save for batch processing
-                        region_path = os.path.join(temp_dir, f"region_{page_num}_{x1}_{y1}.png")
-                        cv2.imwrite(region_path, region)
-                        regions_to_process.append({
-                            'path': region_path,
-                            'box': box,
-                            'paddle_text': paddle_text,
-                            'paddle_conf': paddle_conf
-                        })
-                    else:
-                        # Printed text directly
-                        text_blocks.append({
-                            "text": paddle_text,
-                            "confidence": paddle_conf,
-                            "box": box,
-                            "page": page_num + 1,
-                            "engine": "paddle"
-                        })
-
-                # Batch process collected handwritten regions
-                if regions_to_process:
-                    self.logger.info(f"Running TrOCR batch on {len(regions_to_process)} regions...")
-                    batch_start = time.time()
-                    paths = [r['path'] for r in regions_to_process]
-                    
-                    # Process in smaller chunks to avoid OOM
-                    batch_size = 16
-                    trocr_results = []
-                    
-                    for i in range(0, len(paths), batch_size):
-                        chunk_paths = paths[i:i + batch_size]
-                        chunk_results = self.extract_handwriting_batch(chunk_paths)
-                        trocr_results.extend(chunk_results)
-                    
-                    batch_duration = time.time() - batch_start
-                    self.logger.info(f"TrOCR batch finished in {batch_duration:.2f}s ({len(regions_to_process)} regions)")
-                    
-                    # Merge results
-                    for i, result_text in enumerate(trocr_results):
-                        meta = regions_to_process[i]
-                        if result_text and len(result_text) > 0:
+                        for line in result[0]:
+                            box = line[0]
+                            text = line[1][0]
+                            conf = line[1][1]
+                            
                             text_blocks.append({
-                                "text": result_text,
-                                "confidence": 0.85,
-                                "box": meta['box'],
-                                "page": page_num + 1,
-                                "engine": "trocr_handwriting"
-                            })
-                        else:
-                             # Fallback to paddle
-                             text_blocks.append({
-                                "text": meta['paddle_text'],
-                                "confidence": meta['paddle_conf'],
-                                "box": meta['box'],
+                                "text": text,
+                                "confidence": conf,
+                                "box": box,
                                 "page": page_num + 1,
                                 "engine": "paddle"
                             })
                 
-                self.logger.info(f"Processed PDF page {page_num + 1}: {len(paddle_results)} regions in {time.time() - start_time:.2f}s")
+                self.logger.info(f"Processed PDF page {page_num + 1}")
             
             pdf_doc.close()
             
         except Exception as e:
             self.logger.error(f"PDF preprocessing failed: {e}")
-            # Fallback to direct OCR
+            # Fallback to direct OCR if possible
             if 'paddle' in self.engines:
                 result = self.engines['paddle'].ocr(pdf_path)
                 if result and result[0]:
@@ -633,6 +411,11 @@ class HybridOCREngine:
             img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
                                         cv2.THRESH_BINARY, 11, 2)
             
+            # Morphological Closing: Connects broken strokes (e.g., fixing "4" misread as "1")
+            # Kernel size (2,2) or (3,3) depends on resolution, starting small to avoid merging distinct chars
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+            img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
+            
             # Save preprocessed image
             temp_dir = "temp_processed"
             os.makedirs(temp_dir, exist_ok=True)
@@ -648,39 +431,5 @@ class HybridOCREngine:
             return image_path
 
 
-def download_trocr_model():
-    """Download TrOCR model ahead of time to avoid blocking during document processing"""
-    print("=" * 60)
-    print("TrOCR Model Downloader")
-    print("=" * 60)
-    print("\nThis will download the TrOCR handwriting recognition model (~1.3GB)")
-    print("from HuggingFace. Please ensure you have a stable internet connection.\n")
-    
-    try:
-        from transformers import TrOCRProcessor, VisionEncoderDecoderModel
-        
-        print("[1/2] Downloading TrOCR Processor...")
-        processor = TrOCRProcessor.from_pretrained('microsoft/trocr-base-handwritten')
-        print("      ✓ Processor downloaded successfully")
-        
-        print("\n[2/2] Downloading TrOCR Model (this may take several minutes)...")
-        model = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-base-handwritten')
-        print("      ✓ Model downloaded successfully")
-        
-        print("\n" + "=" * 60)
-        print("TrOCR is ready to use! Restart the server to enable it.")
-        print("=" * 60)
-        return True
-        
-    except Exception as e:
-        print(f"\n✗ Error downloading TrOCR: {e}")
-        print("\nTroubleshooting tips:")
-        print("  1. Check your internet connection")
-        print("  2. Try running: pip install --upgrade transformers huggingface_hub")
-        print("  3. If behind a firewall, set HF_HUB_OFFLINE=0")
-        return False
 
-
-if __name__ == "__main__":
-    download_trocr_model()
 
