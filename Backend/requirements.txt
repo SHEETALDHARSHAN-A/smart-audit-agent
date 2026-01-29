@@ -1,3 +1,4 @@
+--find-links https://download.pytorch.org/whl/torch_stable.html
 aistudio-sdk==0.3.8                                                                                   
 annotated-doc==0.0.4
 annotated-types==0.7.0
